@@ -1,15 +1,16 @@
 {
   "name": "fh-wfm-store",
-  "version": "1.0.0",
-  "description": "",
-  "main": "lib/store.js",
+  "version": "0.1.0",
+  "description": "Storage API for Raincathcer Modules",
+  "main": "cloud/StorageEngine.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
-    "waterline": "^0.11.4",
-    "lodash": "^4.16.4"
+    "lodash": "^4.16.4",
+    "q": "^1.4.1",
+    "waterline": "^0.11.4"
   }
 }
