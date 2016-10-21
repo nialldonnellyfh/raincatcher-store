@@ -1,0 +1,16 @@
+{
+  "name": "fh-wfm-storage",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "waterline": "^0.11.4",
+    "lodash": "^4.16.4",
+    "sails-memory": "^0.10.7"
+  }
+}
