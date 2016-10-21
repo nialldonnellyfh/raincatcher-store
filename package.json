@@ -1,8 +1,8 @@
 {
-  "name": "fh-wfm-storage",
+  "name": "fh-wfm-store",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "lib/store.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -10,7 +10,6 @@
   "license": "ISC",
   "dependencies": {
     "waterline": "^0.11.4",
-    "lodash": "^4.16.4",
-    "sails-memory": "^0.10.7"
+    "lodash": "^4.16.4"
   }
 }
