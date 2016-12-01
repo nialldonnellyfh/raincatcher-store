@@ -10,7 +10,6 @@
   "license": "MIT",
   "dependencies": {
     "lodash": "^4.16.4",
-    "q": "^1.4.1",
-    "waterline": "^0.11.4"
+    "q": "^1.4.1"
   }
 }

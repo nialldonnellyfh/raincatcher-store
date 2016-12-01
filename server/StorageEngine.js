@@ -1,77 +1,68 @@
 var DataStore = require('./DataStore');
-var Waterline = require('waterline');
 var _ = require('lodash');
 
-function StorageEngine(mediator) {
+
+/**
+ * A Raincatcher Storage Engine.
+ *
+ * This engine is designed to manage the various data stores used by applications that consume raincatcher modules.
+ *
+ * @param mediator
+ * @param mongoose
+ * @constructor
+ */
+function StorageEngine(mediator, mongoose) {
   var self = this;
-  this.mediator = mediator;
-  this.dataSets = {};
-  //Storage is initialised, we can use.
-  //TODO, This could be nicer..
-  this.mediator.once('wfm:storage:initialise', function(config) {
+  self.mediator = mediator;
+  self.dataStores = {};
+  self.mongoose = mongoose;
+
+  //Listening for storage initialisation topic
+  self.mediator.once('wfm:storage:initialise', function (config) {
     console.log("Initialising Storage");
     self.initialise(config);
   });
 
-  //When the application closes, we close the subscribers.
-  this.mediator.once('wfm:application:close', function() {
-    self.unsubscribeDataSetSubscribers();
+  //When the application closes, we close the subscribers for each data store.
+  self.mediator.once('wfm:storage:close', function () {
+    self.unsubscribeDataStoreSubscribers();
   });
+
 }
 
-StorageEngine.prototype.addDataSet = function (schema, datasetId, topicPrefix, topicConfig) {
-  console.log("Adding Data Set");
-  var dataSet = new DataStore(this.mediator, schema, datasetId, topicPrefix, topicConfig);
+/**
+ *
+ * Adding a data store to the engine.
+ *
+ *
+ * @param {object} schema         - The waterline schema.
+ * @param {string}  dataStoreId   - The ID of the data store.
+ * @returns {DataStore}
+ */
+StorageEngine.prototype.addDataStore = function (schema, dataStoreId) {
+  console.log("Adding Data Store");
+  var self = this;
+  var dataStore = new DataStore(self.mediator, schema, self.mongoose, dataStoreId);
 
-  //Storing the data sets.
-  this.dataSets[datasetId] = dataSet;
+  //Registering the data store.
+  //TODO - Should check for duplicates etc.
+  self.dataStores[dataStoreId] = dataStore;
+
+  return dataStore;
 };
 
-StorageEngine.prototype.initialise = function(config) {
+StorageEngine.prototype.initialise = function() {
   var self = this;
   console.log("Initialising StorageEngine");
-  this.waterline = new Waterline();
 
-  //Loading Collections
-  _.each(this.dataSets, function(dataSet) {
-    self.waterline.loadCollection(dataSet.collection);
-  });
-
-  console.log("Initialising Waterline");
-  this.waterline.initialize(config, function(err, ontology) {
-    console.log("Waterline initialised", err, ontology);
-    if(err) {
-      self.mediator.publish('error:storage:initialise', err);
-    } else {
-      _.each(self.dataSets, function (dataSet) {
-        //Storage is ready, set the collection
-        var dataSetCollection = _.find(ontology.collections, function(initialisedCollection, name) {
-          console.log("**** collections", name, dataSet.schema.identity, initialisedCollection);
-          return name === dataSet.schema.identity;
-        });
-
-        console.log("*** dataSetCollection", dataSetCollection);
-
-        dataSet.setInitialisedCollection(dataSetCollection);
-      });
-
-      self.registerDataSetSubscribers();
-      //Finished storage initialsation.
-      self.mediator.publish('done:wfm:storage:initialise');
-    }
-
+  _.each(self.dataStores, function(dataStore) {
+    dataStore.initialise();
   });
 };
 
 
-StorageEngine.prototype.registerDataSetSubscribers = function( ) {
-  _.each(this.dataSets, function (dataSet) {
-    dataSet.registerSubscribers();
-  });
-};
-
-StorageEngine.prototype.unsubscribeDataSetSubscribers = function () {
-  _.each(this.dataSets, function (dataSet) {
+StorageEngine.prototype.unsubscribeDataStoreSubscribers = function () {
+  _.each(this.dataStores, function (dataSet) {
     dataSet.unsubscribe();
   });
 };
