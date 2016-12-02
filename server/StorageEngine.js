@@ -61,13 +61,12 @@ StorageEngine.prototype.initialise = function() {
 };
 
 /**
- * Registering
+ * Registering a schema for a single data store.
  * @param dataStoreId
- * @param schemaId
- * @param schema
+ * @param options
  */
-StorageEngine.prototype.registerSchema = function(dataStoreId, schemaId, schema) {
-  return this.dataStores[dataStoreId].registerSchema(schemaId, schema);
+StorageEngine.prototype.initDataSet = function(dataStoreId, options) {
+  return this.dataStores[dataStoreId].store.initDataSet(options);
 };
 
 
@@ -76,34 +75,41 @@ StorageEngine.prototype.registerSchema = function(dataStoreId, schemaId, schema)
  * Registering a subscriber for a topic related to a single data store.
  *
  * @param dataStoreId
+ * @param dataSetId
  * @param topic
  * @param topicFunction
  */
-StorageEngine.registerSubscriber = function(dataStoreId, topic, topicFunction) {
+StorageEngine.registerSubscriber = function(dataStoreId, dataSetId, topic, topicFunction) {
   var self = this;
 
   var dataStore = self.dataStores[dataStoreId];
 
-  if(dataStore) {
-    self.dataStores.topics[topic] = self.mediator.subscribe(topic, function() {
+  //TODO - shouldn't really create the function in here.
+  function subscriberFunction() {
 
-      //Executing the function in the context of the data store with the passed arguments.
-      //This allows registered functions to have access to the data store
-      //TODO - shouldn't really create the function in here.
-      var dsFunction = _.bind(dataStore, topicFunction, arguments);
-      dsFunction().then(function(){
-          self.mediator.publish('done:' + topic);
-        })
-        .reject(function(error) {
-          self.mediator.publish('error:' + topic, error);
-        });
-    });
+    //Executing the function in the context of the data set with the passed arguments.
+    //This allows registered functions to have access to the data store
+    //TODO: Be more guarded etc.
+    var dataSet = dataStore.store.getDataSet(dataSetId);
+    var dataSetFunction = _.bind(dataSet, topicFunction, arguments);
+    dataSetFunction().then(function(){
+        //Done, publish done state for this topic
+        self.mediator.publish('done:' + topic);
+      })
+      .catch(function(error) {
+        //Error fulfilling the topic, publish error state for this topic
+        self.mediator.publish('error:' + topic, error);
+      });
+  }
+
+  if(dataStore) {
+    dataStore.topics[topic] = self.mediator.subscribe(topic, subscriberFunction);
   }
 };
 
 /**
- * Un-subscribing the data store subscribers from the mediator.
  *
+ * Un-subscribing the data store subscribers from the mediator.
  *
  * TODO: Can be more granular to unsubscribe specific topics in a speific data store.
  */
