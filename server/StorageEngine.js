@@ -8,14 +8,12 @@ var _ = require('lodash');
  * This engine is designed to manage the various data stores used by applications that consume raincatcher modules.
  *
  * @param mediator
- * @param mongoose
  * @constructor
  */
-function StorageEngine(mediator, mongoose) {
+function StorageEngine(mediator) {
   var self = this;
   self.mediator = mediator;
   self.dataStores = {};
-  self.mongoose = mongoose;
 
   //Listening for storage initialisation topic
   self.mediator.once('wfm:storage:initialise', function (config) {
@@ -35,18 +33,20 @@ function StorageEngine(mediator, mongoose) {
  * Adding a data store to the engine.
  *
  *
- * @param {object} schema         - The waterline schema.
- * @param {string}  dataStoreId   - The ID of the data store.
+ * @param {DataStore}  dataStore
+ * @param {string}  dataStoreId
  * @returns {DataStore}
  */
-StorageEngine.prototype.addDataStore = function (schema, dataStoreId) {
+StorageEngine.prototype.addDataStore = function (dataStoreId, dataStore) {
   console.log("Adding Data Store");
   var self = this;
-  var dataStore = new DataStore(self.mediator, schema, self.mongoose, dataStoreId);
 
   //Registering the data store.
   //TODO - Should check for duplicates etc.
-  self.dataStores[dataStoreId] = dataStore;
+  self.dataStores[dataStoreId] = {
+    store: dataStore,
+    topics: {}
+  };
 
   return dataStore;
 };
@@ -60,10 +60,60 @@ StorageEngine.prototype.initialise = function() {
   });
 };
 
+/**
+ * Registering
+ * @param dataStoreId
+ * @param schemaId
+ * @param schema
+ */
+StorageEngine.prototype.registerSchema = function(dataStoreId, schemaId, schema) {
+  return this.dataStores[dataStoreId].registerSchema(schemaId, schema);
+};
 
+
+/**
+ *
+ * Registering a subscriber for a topic related to a single data store.
+ *
+ * @param dataStoreId
+ * @param topic
+ * @param topicFunction
+ */
+StorageEngine.registerSubscriber = function(dataStoreId, topic, topicFunction) {
+  var self = this;
+
+  var dataStore = self.dataStores[dataStoreId];
+
+  if(dataStore) {
+    self.dataStores.topics[topic] = self.mediator.subscribe(topic, function() {
+
+      //Executing the function in the context of the data store with the passed arguments.
+      //This allows registered functions to have access to the data store
+      //TODO - shouldn't really create the function in here.
+      var dsFunction = _.bind(dataStore, topicFunction, arguments);
+      dsFunction().then(function(){
+          self.mediator.publish('done:' + topic);
+        })
+        .reject(function(error) {
+          self.mediator.publish('error:' + topic, error);
+        });
+    });
+  }
+};
+
+/**
+ * Un-subscribing the data store subscribers from the mediator.
+ *
+ *
+ * TODO: Can be more granular to unsubscribe specific topics in a speific data store.
+ */
 StorageEngine.prototype.unsubscribeDataStoreSubscribers = function () {
-  _.each(this.dataStores, function (dataSet) {
-    dataSet.unsubscribe();
+  var self = this;
+
+  _.each(this.dataStores, function (dataStore) {
+    _.each(dataStore.topics, function(subscription, topic) {
+      self.mediator.remove(topic, subscription.id);
+    });
   });
 };
 
